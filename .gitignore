@@ -1,0 +1,16 @@
+*.py[cod]
+
+# C extensions
+*.so
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+# Translations
+*.mo
+
+
+# Vi
+*.swp
