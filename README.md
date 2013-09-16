@@ -11,3 +11,12 @@ Simple wrappers for the multiprocessing library that allow
 
 Similar to joblib.Parallel but with the addition of imap functionality
 and a different way of handling Ctrl-C exit (add a timeout).
+
+Install
+=======
+
+Place this directory somewhere in your PYTHONPATH.
+
+Now
+
+    >>> from parallel_easy.parallel_easy import parallel_easy

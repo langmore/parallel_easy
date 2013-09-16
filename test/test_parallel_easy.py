@@ -6,7 +6,7 @@ from pandas.util.testing import assert_frame_equal, assert_series_equal
 import numpy as np
 import scipy as sp
 
-import parallel_easy
+from parallel_easy.parallel_easy import base, pandas_easy
 
 
 # A couple functions for testing parallel easy
@@ -20,47 +20,69 @@ def frame_to_series(frame):
     return pd.Series([x] * len(frame.columns), index=frame.columns)
 
 
-class TestParallelEasy(unittest.TestCase):
+class TestBase(unittest.TestCase):
     """
-    Tests the parallel_easy module.
+    Tests the base module.
     """
     def setUp(self):
         self.numbers = range(5)
         self.benchmark = [0, 6, 12, 18, 24]
 
     def test_map_easy_1job(self):
-        result = parallel_easy.map_easy(abfunc, self.numbers, 1)
+        result = base.map_easy(abfunc, self.numbers, 1)
         self.assertEqual(result, self.benchmark)
 
     def test_map_easy_3job(self):
-        result = parallel_easy.map_easy(abfunc, self.numbers, 3)
+        result = base.map_easy(abfunc, self.numbers, 3)
         self.assertEqual(result, self.benchmark)
 
     def test_imap_easy_1job(self):
-        result_iterator = parallel_easy.imap_easy(abfunc, self.numbers, 1, 1)
+        result_iterator = base.imap_easy(abfunc, self.numbers, 1, 1)
         result = []
         for number in result_iterator:
             result.append(number)
         self.assertEqual(result, self.benchmark)
 
     def test_imap_easy_3job(self):
-        result_iterator = parallel_easy.imap_easy(abfunc, self.numbers, 3, 1)
+        result_iterator = base.imap_easy(abfunc, self.numbers, 3, 1)
         result = []
         for number in result_iterator:
             result.append(number)
         self.assertEqual(result, self.benchmark)
 
+    def test_n_jobs_wrap_positive(self):
+        """
+        For n_jobs positive, the wrap should return n_jobs.
+        """
+        for n_jobs in range(1, 5):
+            result = base._n_jobs_wrap(n_jobs)
+            self.assertEqual(result, n_jobs)
+
+    def test_n_jobs_wrap_zero(self):
+        """
+        For n_jobs zero, the wrap should raise a ValueError
+        """
+        self.assertRaises(ValueError, base._n_jobs_wrap, 0)
+
+
+class TestPandasEasy(unittest.TestCase):
+    """
+    Tests the pandas_easy module.
+    """
+    def setUp(self):
+        pass
+
     def test_groupby_to_scalar_to_series_1(self):
         df = pd.DataFrame({'a': [6, 2, 2], 'b': [4, 5, 6]})
         benchmark = df.groupby('a').apply(max)
-        result = parallel_easy.groupby_to_scalar_to_series(df, max, 1, by='a')
+        result = pandas_easy.groupby_to_scalar_to_series(df, max, 1, by='a')
         assert_series_equal(result, benchmark)
 
     def test_groupby_to_scalar_to_series_2(self):
         s = pd.Series([1, 2, 3, 4])
         labels = ['a', 'a', 'b', 'b']
         benchmark = s.groupby(labels).apply(max)
-        result = parallel_easy.groupby_to_scalar_to_series(
+        result = pandas_easy.groupby_to_scalar_to_series(
             s, max, 1, by=labels)
         assert_series_equal(result, benchmark)
 
@@ -68,7 +90,7 @@ class TestParallelEasy(unittest.TestCase):
         df = pd.DataFrame({'a': [6, 2, 2], 'b': [4, 5, 6]})
         labels = ['g1', 'g1', 'g2']
         benchmark = df.groupby(labels).mean()
-        result = parallel_easy.groupby_to_series_to_frame(
+        result = pandas_easy.groupby_to_series_to_frame(
             df, np.mean, 1, use_apply=True, by=labels)
         assert_frame_equal(result, benchmark)
 
@@ -76,20 +98,6 @@ class TestParallelEasy(unittest.TestCase):
         df = pd.DataFrame({'a': [6, 2, 2], 'b': [4, 5, 6]})
         labels = ['g1', 'g1', 'g2']
         benchmark = df.groupby(labels).apply(frame_to_series)
-        result = parallel_easy.groupby_to_series_to_frame(
+        result = pandas_easy.groupby_to_series_to_frame(
             df, frame_to_series, 1, use_apply=False, by=labels)
         assert_frame_equal(result, benchmark)
-
-    def test_n_jobs_wrap_positive(self):
-        """
-        For n_jobs positive, the wrap should return n_jobs.
-        """
-        for n_jobs in range(1, 5):
-            result = parallel_easy._n_jobs_wrap(n_jobs)
-            self.assertEqual(result, n_jobs)
-
-    def test_n_jobs_wrap_zero(self):
-        """
-        For n_jobs zero, the wrap should raise a ValueError
-        """
-        self.assertRaises(ValueError, parallel_easy._n_jobs_wrap, 0)
