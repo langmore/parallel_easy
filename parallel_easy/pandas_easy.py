@@ -1,12 +1,7 @@
 """
 Functions for helping make pandas parallel.
 """
-import itertools
 from functools import partial
-from multiprocessing import Pool, cpu_count
-from multiprocessing.pool import IMapUnorderedIterator, IMapIterator
-import cPickle
-import sys
 
 import numpy as np
 import pandas as pd
@@ -14,12 +9,13 @@ import pandas as pd
 from .base import map_easy
 
 
-################################################################################
+###############################################################################
 # Globals
-################################################################################
-# Used as the timeout
-GOOGLE = 1e100
+###############################################################################
 
+###############################################################################
+# Functions
+###############################################################################
 
 
 def groupby_to_scalar_to_series(df_or_series, func, n_jobs, **groupby_kwargs):

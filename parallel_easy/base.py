@@ -1,13 +1,5 @@
 """
 Functions to assist in parallel processing with Python 2.7.
-
-Simple wrappers for the multiprocessing library that allow
-* Exit with Ctrl-C
-* Easier use of n_jobs
-* When n_jobs == 1, processing is serial
-
-Similar to joblib.Parallel but with the addition of imap functionality
-and a different way of handling Ctrl-C exit (add a timeout).
 """
 import itertools
 from functools import partial
@@ -20,11 +12,16 @@ import numpy as np
 import pandas as pd
 
 
-################################################################################
+###############################################################################
 # Globals
-################################################################################
+###############################################################################
 # Used as the timeout
 GOOGLE = 1e100
+
+
+###############################################################################
+# Functions
+###############################################################################
 
 
 def imap_easy(func, iterable, n_jobs, chunksize, ordered=True):
@@ -137,7 +134,6 @@ def map_easy(func, iterable, n_jobs):
         return Pool(n_jobs).map_async(func, iterable).get(GOOGLE)
 
 
-
 def _n_jobs_wrap(n_jobs):
     """
     For dealing with positive or negative n_jobs.
@@ -214,6 +210,7 @@ def _trypickle(func):
     except:
         sys.stderr.write(genericmsg + '\n')
         raise
+
 
 # Redefine IMapUnorderedIterator so we can exit with Ctrl-C
 IMapUnorderedIterator.next = _imap_wrap(IMapUnorderedIterator.next)
