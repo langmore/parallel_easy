@@ -6,7 +6,7 @@ from pandas.util.testing import assert_frame_equal, assert_series_equal
 import numpy as np
 import scipy as sp
 
-from parallel_easy.parallel_easy import base, pandas_easy
+from parallel_easy import base, pandas_easy
 
 
 # A couple functions for testing parallel easy

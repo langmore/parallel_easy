@@ -21,4 +21,4 @@ Place this directory somewhere in your `PYTHONPATH`.
 
 Now
 
-    >>> from parallel_easy.parallel_easy import base, pandas_easy
+    >>> from parallel_easy import base, pandas_easy
