@@ -19,6 +19,18 @@ def frame_to_series(frame):
     x = frame.iloc[0, 0]
     return pd.Series([x] * len(frame.columns), index=frame.columns)
 
+def rightmax(mylist):
+    return [max(mylist[i: i+2]) for i in range(len(mylist))]
+
+def leftmax(mylist):
+    for i in range(len(mylist)):
+        if i == 0:
+            result = [mylist[0]]
+        else:
+            result.append(max(mylist[i - 1: i+1]))
+
+    return result
+
 
 class TestBase(unittest.TestCase):
     """
@@ -63,6 +75,70 @@ class TestBase(unittest.TestCase):
         For n_jobs zero, the wrap should raise a ValueError
         """
         self.assertRaises(ValueError, base._n_jobs_wrap, 0)
+
+
+class TestMapEasyPaddedBlock(unittest.TestCase):
+    """
+    Tests the base.map_easy_padded_blocks function.
+    """
+    def setUp(self):
+        #self.numbers_1 = [
+        #    0, 0, 2, -1, 4, 2, 6, 7, 6, 9, 12, 11, 11, 14, 55, 55, 44, 33, 33]
+        self.numbers_10 = np.random.randint(0, 5, 10)
+        self.numbers_101 = np.random.randint(0, 5, 101)
+        self.numbers_51 = np.random.randint(0, 5, 101)
+        #self.numbers_1 = [0, 1, 2, 0, 3, 2, 4, 3, 2, 3, 3]
+        self.n_jobs = 1
+
+    def lefttest(self, numbers, buffer_len, blocksize):
+        result = base.map_easy_padded_blocks(
+            leftmax, numbers, self.n_jobs, buffer_len, blocksize=blocksize)
+        benchmark = leftmax(numbers)
+        self.assertEqual(result, benchmark)
+
+    def righttest(self, numbers, buffer_len, blocksize):
+        result = base.map_easy_padded_blocks(
+            rightmax, numbers, self.n_jobs, buffer_len, blocksize=blocksize)
+        benchmark = rightmax(numbers)
+        self.assertEqual(result, benchmark)
+
+    def test_map_easy_padded_blocks_14(self):
+        buffer_len = 1
+        blocksize = 4
+        self.lefttest(self.numbers_10, buffer_len, blocksize)
+        self.lefttest(self.numbers_101, buffer_len, blocksize)
+        self.lefttest(self.numbers_51, buffer_len, blocksize)
+        self.righttest(self.numbers_10, buffer_len, blocksize)
+        self.righttest(self.numbers_101, buffer_len, blocksize)
+        self.righttest(self.numbers_51, buffer_len, blocksize)
+
+    def test_map_easy_padded_blocks_24(self):
+        buffer_len = 2
+        blocksize = 4
+        self.lefttest(self.numbers_10, buffer_len, blocksize)
+        self.lefttest(self.numbers_101, buffer_len, blocksize)
+        self.lefttest(self.numbers_51, buffer_len, blocksize)
+        self.righttest(self.numbers_10, buffer_len, blocksize)
+        self.righttest(self.numbers_101, buffer_len, blocksize)
+        self.righttest(self.numbers_51, buffer_len, blocksize)
+
+    def test_map_easy_padded_blocks_37(self):
+        buffer_len = 3
+        blocksize = 7
+        self.lefttest(self.numbers_101, buffer_len, blocksize)
+        self.lefttest(self.numbers_51, buffer_len, blocksize)
+        self.righttest(self.numbers_101, buffer_len, blocksize)
+        self.righttest(self.numbers_51, buffer_len, blocksize)
+
+    def test_map_easy_padded_blocks_17(self):
+        buffer_len = 1
+        blocksize = 7
+        self.lefttest(self.numbers_10, buffer_len, blocksize)
+        self.lefttest(self.numbers_101, buffer_len, blocksize)
+        self.lefttest(self.numbers_51, buffer_len, blocksize)
+        self.righttest(self.numbers_10, buffer_len, blocksize)
+        self.righttest(self.numbers_101, buffer_len, blocksize)
+        self.righttest(self.numbers_51, buffer_len, blocksize)
 
 
 class TestPandasEasy(unittest.TestCase):

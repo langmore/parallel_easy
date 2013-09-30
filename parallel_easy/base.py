@@ -56,7 +56,7 @@ def imap_easy(func, iterable, n_jobs, chunksize, ordered=True):
     Examples
     --------
     >>> from functools import partial
-    >>> from jrl_utils.src.parallel_easy import imap_easy, map_easy
+    >>> from parallel_easy.base import imap_easy, map_easy
     >>> def abfunc(x, a, b=1):
     ...     return x * a * b
     >>> some_numbers = range(5)
@@ -112,7 +112,7 @@ def map_easy(func, iterable, n_jobs):
     Examples
     --------
     >>> from functools import partial
-    >>> from jrl_utils.src.parallel_easy import imap_easy, map_easy
+    >>> from parallel_easy.base import imap_easy, map_easy
     >>> def abfunc(x, a, b=1):
     ...     return x * a * b
     >>> some_numbers = range(5)
@@ -132,6 +132,130 @@ def map_easy(func, iterable, n_jobs):
         return map(func, iterable)
     else:
         return Pool(n_jobs).map_async(func, iterable).get(GOOGLE)
+
+
+def map_easy_padded_blocks(func, iterable, n_jobs, pad, blocksize=None):
+    """
+    Returns a parallel map of func over iterable, computed by splitting
+    iterable into padded blocks, then piecing the result together.
+
+    Parameters
+    ----------
+    func : Function of one variable
+        You can use functools.partial to build this.  
+        A lambda function will not work
+    iterable : List, iterator, etc...
+        func is applied to this
+    n_jobs : Integer
+        The number of jobs to use for the computation. If -1 all CPUs are used.
+        If 1 is given, no parallel computing code is used at all, which is
+        useful for debugging. For n_jobs below -1, (n_cpus + 1 + n_jobs) are
+        used. Thus for n_jobs = -2, all CPUs but one are used.
+    pad : Nonnegative Integer
+        Each block is processed with pad extra on each side.
+    blocksize : Nonnegative Integer
+        If None, use 100 * pad
+
+    Returns
+    -------
+    result : List
+        Equivalent to list(func(iterable))
+
+    Examples
+    --------
+    >>> numbers = [0, 0, 2, -1, 4, 2, 6, 7, 6, 9]
+    >>> pad = 1
+    >>> n_jobs = -1
+    >>> def rightmax(mylist):
+    ...     return [max(mylist[i: i+2]) for i in range(len(mylist))]
+    >>> result = map_easy_padded_blocks(rightmax, numbers, n_jobs, pad)
+    >>> benchmark = rightmax(numbers)
+    >>> result == benchmark
+    True
+    """
+    mylist = list(iterable)
+
+    # We will pad each side of the blocks with this to avoid edge effects.
+    max_blocksize = len(mylist) - pad - 1
+
+    if blocksize is None:
+        blocksize = min(max_blocksize, 100 * pad)
+
+    assert pad + blocksize < len(mylist)
+
+    # Get an iterator over padded blocks
+    block_idx, pads_used = get_split_idx(len(mylist), blocksize, pad=pad)
+    block_iter = (mylist[start: end] for start, end in block_idx)
+
+    # Process each block
+    processed_blocks = map_easy(func, block_iter, n_jobs)
+
+    result = []
+    for block, (leftpad, rightpad) in zip(processed_blocks, pads_used):
+        result += block[leftpad: len(block) - rightpad]
+
+    return result
+
+
+def get_split_idx(N, blocksize, pad=0):
+    """
+    Returns a list of indexes dividing an array into blocks of size blocksize 
+    with optional padding.  Padding takes into account that the resultant block
+    must fit within the original array.
+
+    Parameters
+    ----------
+    N : Nonnegative integer
+        Total array length
+    blocksize : Nonnegative integer
+        Size of each block
+    pad : Nonnegative integer
+        Pad to add on either side of each index
+
+    Returns
+    -------
+    split_idx : List of 2-tuples
+        Indices to create splits
+    pads_used : List of 2-tuples
+        Pads that were actually used on either side
+
+    Examples
+    --------
+    >>> split_idx, pads_used = get_split_idx(5, 2)
+    >>> print split_idx
+    [(0, 2), (2, 4), (4, 5)]
+    >>> print pads_used
+    [(0, 0), (0, 0), (0, 0)]
+
+    >>> get_split_idx(5, 2, pad=1)
+    >>> print split_idx
+    [(0, 3), (1, 5), (3, 5)]
+    >>> print pads_used
+    [(0, 1), (1, 1), (1, 0)]
+    """
+    num_fullsplits = N // blocksize
+    remainder = N % blocksize
+
+    split_idx = []
+    pads_used = []
+    for i in range(num_fullsplits):
+        start = max(0, i * blocksize - pad)
+        end = min(N, (i + 1) * blocksize + pad)
+        split_idx.append((start, end))
+
+        leftpad = i * blocksize - start
+        rightpad = end - (i + 1) * blocksize
+        pads_used.append((leftpad, rightpad))
+
+    # Append the last split if there is a remainder
+    if remainder:
+        start = max(0, num_fullsplits * blocksize - pad)
+        split_idx.append((start, N))
+        
+        leftpad = num_fullsplits * blocksize - start
+        pads_used.append((leftpad, 0))
+
+    return split_idx, pads_used
 
 
 def _n_jobs_wrap(n_jobs):
@@ -191,13 +315,22 @@ def _trypickle(func):
     """
     Attempts to pickle func since multiprocessing needs to do this.
     """
-    boundmethodmsg = """
-    func contained a bound method, and these cannot be pickled.  This causes
-    multiprocessing to fail.  A bound method occurs when e.g. you set an
-    attribute equal to a method, as in self.myfunc = self.mymethod, or when
-    you set an attribute equal to a lambda function.
-    """
     genericmsg = "Pickling of func (necessary for multiprocessing) failed."
+
+    boundmethodmsg = genericmsg + '\n\n' + """
+    func contained a bound method, and these cannot be pickled.  This causes
+    multiprocessing to fail.  Possible causes/solutions:
+    
+    Cause 1) You used a lambda function or an object's method, e.g. 
+        my_object.myfunc
+    Solution 1) Wrap the method or lambda function, e.g.
+        def func(x):
+            return my_object.myfunc(x)
+
+    Cause 2) You are pickling an object that had an attribute equal to a
+        method or lambda func, e.g. self.myfunc = self.mymethod.
+    Solution 2)  Don't do this.
+    """
 
     try:
         cPickle.dumps(func)
