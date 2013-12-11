@@ -1,3 +1,6 @@
+**NOTE** parallel_easy is no longer maintained as a separate package.  Please see [rosetta.parallel](https://github.com/columbia-applied-data-science/rosetta/tree/master/rosetta/parallel)
+
+
 parallel_easy
 =============
 
